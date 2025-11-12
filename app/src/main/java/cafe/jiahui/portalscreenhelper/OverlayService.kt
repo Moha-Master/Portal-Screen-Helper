@@ -1,0 +1,161 @@
+package cafe.jiahui.portalscreenhelper
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.graphics.PixelFormat
+import android.hardware.display.DisplayManager
+import android.os.Build
+import android.os.IBinder
+import android.view.*
+import androidx.compose.ui.platform.ComposeView
+import androidx.core.app.NotificationCompat
+import androidx.lifecycle.*
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import cafe.jiahui.portalscreenhelper.ui.FloatingNavBar
+import cafe.jiahui.portalscreenhelper.ui.theme.PortalScreenHelperTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
+
+    private var windowManager: WindowManager? = null
+    private var composeView: ComposeView? = null
+    private var displayId: Int = Display.DEFAULT_DISPLAY
+
+    // Manual Lifecycle & SavedState implementation
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    private val savedStateRegistryController = SavedStateRegistryController.create(this)
+
+    override val lifecycle: Lifecycle
+        get() = lifecycleRegistry
+    override val savedStateRegistry: SavedStateRegistry
+        get() = savedStateRegistryController.savedStateRegistry
+
+    companion object {
+        const val EXTRA_DISPLAY_ID = "extra_display_id"
+        private const val NOTIFICATION_ID = 1
+        private const val CHANNEL_ID = "PortalScreenHelperChannel"
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        savedStateRegistryController.performRestore(null)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        createNotificationChannel()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        val notification = createNotification()
+        startForeground(NOTIFICATION_ID, notification)
+
+        displayId = intent?.getIntExtra(EXTRA_DISPLAY_ID, Display.DEFAULT_DISPLAY) ?: Display.DEFAULT_DISPLAY
+        
+        if (displayId == Display.DEFAULT_DISPLAY) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        setupOverlay()
+        return START_STICKY
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val serviceChannel = NotificationChannel(
+                CHANNEL_ID,
+                "Portal Screen Helper Service Channel",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            getSystemService(NotificationManager::class.java).createNotificationChannel(serviceChannel)
+        }
+    }
+
+    private fun createNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Portal Screen Helper")
+            .setContentText("Floating navigation bar is active.")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .build()
+    }
+
+    private fun setupOverlay() {
+        if (composeView != null) return
+
+        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        val targetDisplay = displayManager.getDisplay(displayId)
+
+        if (targetDisplay == null) {
+            stopSelf()
+            return
+        }
+
+        val displayContext = createDisplayContext(targetDisplay)
+        windowManager = displayContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+        composeView = ComposeView(displayContext).apply {
+            // Attach the LifecycleOwner and SavedStateRegistryOwner
+            setViewTreeLifecycleOwner(this@OverlayService)
+            setViewTreeSavedStateRegistryOwner(this@OverlayService)
+            
+            setContent {
+                PortalScreenHelperTheme {
+                    FloatingNavBar(
+                        onBackClick = { executeRootCommand("input keyevent 4") },
+                        onHomeClick = { executeRootCommand("input keyevent 3") },
+                        onRecentsClick = { executeRootCommand("input keyevent 187") }
+                    )
+                }
+            }
+        }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, // Changed from MATCH_PARENT to WRAP_CONTENT
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            title = "PortalScreenHelperOverlay"
+        }
+
+        try {
+            windowManager?.addView(composeView, params)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            stopSelf()
+        }
+    }
+
+    private fun executeRootCommand(command: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            RootShell.execute(command)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        if (composeView != null) {
+            windowManager?.removeView(composeView)
+            composeView = null
+            windowManager = null
+        }
+    }
+}
