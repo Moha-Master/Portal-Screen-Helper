@@ -21,6 +21,9 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -218,6 +221,7 @@ fun Footer(displayId: String?, isDisplayConnected: Boolean, modifier: Modifier =
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchAndFooter(
     isDisplayConnected: Boolean,
@@ -227,30 +231,31 @@ fun SearchAndFooter(
     onSearchTextChanged: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val bottomSheetState = rememberModalBottomSheetState()
+    var isSheetOpen by remember { mutableStateOf(false) }
+
     Column {
-        // Search TextField at the bottom
-        TextField(
-            value = searchText,
-            onValueChange = onSearchTextChanged,
-            placeholder = { Text("Search Apps") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+        // Button to open the bottom sheet - this is just a small indicator
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
-                .background(
-                    MaterialTheme.colorScheme.surface,
-                    shape = MaterialTheme.shapes.small
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            singleLine = true,
-            shape = MaterialTheme.shapes.small, // Rounded shape
-            colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                .height(24.dp)
+                .clickable { isSheetOpen = true }
+        ) {
+            // Small indicator that there's a bottom sheet
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 4.dp)
+                    .size(width = 40.dp, height = 4.dp)
+                    .background(
+                        MaterialTheme.colorScheme.onSurface,
+                        shape = RoundedCornerShape(2.dp)
+                    )
             )
-        )
+        }
         
-        // Status text below search
+        // Connection status indicator always visible below the handle
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -263,6 +268,54 @@ fun SearchAndFooter(
                 text = statusText,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
             )
+        }
+    }
+
+    if (isSheetOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { isSheetOpen = false },
+            sheetState = bottomSheetState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp) // Reduced from 16.dp to 8.dp as requested
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                // Status text at the top of the sheet
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    val statusText = if (isDisplayConnected) "Connected" else "Not Connected"
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+                
+                // Search TextField
+                TextField(
+                    value = searchText,
+                    onValueChange = onSearchTextChanged,
+                    placeholder = { Text("Search Apps") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp), // Add bottom padding to avoid touching system navigation
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.small, // Rounded shape
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                    )
+                )
+            }
         }
     }
 }
