@@ -11,15 +11,30 @@ import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.IBinder
 import android.view.*
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.core.app.NotificationCompat
+import cafe.jiahui.portalscreenhelper.ui.FoldableFloatingBar
 import androidx.lifecycle.*
+import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
-import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import cafe.jiahui.portalscreenhelper.ui.FloatingNavBar
 import cafe.jiahui.portalscreenhelper.ui.theme.PortalScreenHelperTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,7 +78,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         startForeground(NOTIFICATION_ID, notification)
 
         displayId = intent?.getIntExtra(EXTRA_DISPLAY_ID, Display.DEFAULT_DISPLAY) ?: Display.DEFAULT_DISPLAY
-        
+
         if (displayId == Display.DEFAULT_DISPLAY) {
             stopSelf()
             return START_NOT_STICKY
@@ -110,10 +125,10 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             // Attach the LifecycleOwner and SavedStateRegistryOwner
             setViewTreeLifecycleOwner(this@OverlayService)
             setViewTreeSavedStateRegistryOwner(this@OverlayService)
-            
+
             setContent {
                 PortalScreenHelperTheme {
-                    FloatingNavBar(
+                    FoldableFloatingBar(
                         onBackClick = { executeRootCommand("input keyevent 4") },
                         onHomeClick = { executeRootCommand("input keyevent 3") },
                         onRecentsClick = { executeRootCommand("input keyevent 187") }
@@ -123,15 +138,16 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
 
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, // Changed from MATCH_PARENT to WRAP_CONTENT
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.START or Gravity.TOP
+            x = 0
+            y = 0
             title = "PortalScreenHelperOverlay"
         }
 
