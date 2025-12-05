@@ -29,23 +29,21 @@ fun FoldableFloatingBar(
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(true) }
-    
+
     // 用于检测向下轻扫手势的逻辑
     var dragOffset by remember { mutableStateOf(0f) }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-    ) {
-        // 可折叠的主栏 - 添加向下轻扫隐藏功能
+    // 使用最基本的容器，只占用实际内容所需的空间
+    // 不再使用试图填充全屏的布局
+    Box(modifier = modifier) { // 一个基本容器，但不强制尺寸
+        // 展开状态：显示主导航栏（底部居中）
         AnimatedVisibility(
             visible = isExpanded,
             enter = slideInVertically() + fadeIn(),
             exit = slideOutVertically() + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .zIndex(1f)
-                .padding(bottom = 16.dp)
+                .padding(bottom = 8.dp) // 减少底部边距
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragEnd = {
@@ -69,38 +67,25 @@ fun FoldableFloatingBar(
                 onCollapse = { isExpanded = false }
             )
         }
-        
-        // 左侧展开按钮
+
+        // 两个展开按钮始终显示，但通过可见性控制是否可见
+        // 左侧展开按钮（始终在屏幕左下角）
         ExpandButton(
-            isVisible = isExpanded.not(),
+            isVisible = !isExpanded,
             onClick = { isExpanded = true },
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .zIndex(2f) // 确保按钮在最上层
-                .padding(start = 16.dp, bottom = 16.dp)
+                .padding(start = 16.dp, bottom = 8.dp) // 减少底部边距
         )
-        
-        // 右侧展开按钮
+
+        // 右侧展开按钮（始终在屏幕右下角）
         ExpandButton(
-            isVisible = isExpanded.not(),
+            isVisible = !isExpanded,
             onClick = { isExpanded = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .zIndex(2f) // 确保按钮在最上层
-                .padding(end = 16.dp, bottom = 16.dp)
+                .padding(end = 16.dp, bottom = 8.dp) // 减少底部边距
         )
-        
-        // 隐藏状态时的拖动手柄区域
-        if (isExpanded.not()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(60.dp) // 可拖动区域的高度
-                    .padding(horizontal = 16.dp)
-                    .background(Color.Transparent)
-            )
-        }
     }
 }
 
@@ -135,6 +120,30 @@ fun ExpandButton(
     }
 }
 
+// 为单独的展开按钮创建一个独立的Composable
+@Composable
+fun StandaloneExpandButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // 使用标准的 FloatingActionButton 来确保正确的触摸处理
+    FloatingActionButton(
+        onClick = onClick,
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = CircleShape,
+        modifier = modifier
+            .size(40.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.KeyboardArrowUp,
+            contentDescription = "Expand",
+            modifier = Modifier
+                .size(24.dp)
+        )
+    }
+}
+
 // 更新的浮动导航栏，包含折叠按钮
 @Composable
 fun FloatingNavBar(
@@ -146,7 +155,7 @@ fun FloatingNavBar(
     Row(
         modifier = Modifier
             .background(
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), 
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                 shape = RoundedCornerShape(50.dp) // Capsule shape
             )
             .padding(horizontal = 8.dp, vertical = 8.dp),
@@ -161,7 +170,7 @@ fun FloatingNavBar(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
                 modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurface 
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
         IconButton(
@@ -172,7 +181,7 @@ fun FloatingNavBar(
                 imageVector = Icons.Default.Home,
                 contentDescription = "Home",
                 modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurface 
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
         IconButton(
@@ -183,11 +192,12 @@ fun FloatingNavBar(
                 imageVector = Icons.Default.Menu,
                 contentDescription = "Recents",
                 modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurface 
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
-        
-        // 收起按钮
+
+        // 收起按钮 - 这个按钮现在由独立的窗口处理
+        // 在这个版本中保留，但实际应用中可能不需要显示
         IconButton(
             onClick = onCollapse,
             modifier = Modifier.size(48.dp)

@@ -29,6 +29,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.core.app.NotificationCompat
 import cafe.jiahui.portalscreenhelper.ui.FoldableFloatingBar
+import cafe.jiahui.portalscreenhelper.ui.FloatingNavBar
+import cafe.jiahui.portalscreenhelper.ui.StandaloneExpandButton
 import androidx.lifecycle.*
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.SavedStateRegistry
@@ -107,8 +109,13 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             .build()
     }
 
+    private var mainBarView: ComposeView? = null
+    private var leftExpandButtonView: ComposeView? = null
+    private var rightExpandButtonView: ComposeView? = null
+    private var isExpandedState: Boolean = true
+
     private fun setupOverlay() {
-        if (composeView != null) return
+        if (mainBarView != null) return
 
         val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         val targetDisplay = displayManager.getDisplay(displayId)
@@ -121,41 +128,130 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val displayContext = createDisplayContext(targetDisplay)
         windowManager = displayContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        composeView = ComposeView(displayContext).apply {
-            // Attach the LifecycleOwner and SavedStateRegistryOwner
+        // 创建主导航栏视图
+        mainBarView = ComposeView(displayContext).apply {
             setViewTreeLifecycleOwner(this@OverlayService)
             setViewTreeSavedStateRegistryOwner(this@OverlayService)
 
             setContent {
                 PortalScreenHelperTheme {
-                    FoldableFloatingBar(
+                    // 只显示主导航栏，不含按钮
+                    FloatingNavBar(
                         onBackClick = { executeRootCommand("input keyevent 4") },
                         onHomeClick = { executeRootCommand("input keyevent 3") },
-                        onRecentsClick = { executeRootCommand("input keyevent 187") }
+                        onRecentsClick = { executeRootCommand("input keyevent 187") },
+                        onCollapse = {
+                            isExpandedState = false
+                            updateVisibility()
+                        }
                     )
                 }
             }
         }
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
+        // 创建左侧展开按钮视图
+        leftExpandButtonView = ComposeView(displayContext).apply {
+            setViewTreeLifecycleOwner(this@OverlayService)
+            setViewTreeSavedStateRegistryOwner(this@OverlayService)
+
+            setContent {
+                PortalScreenHelperTheme {
+                    StandaloneExpandButton(
+                        onClick = {
+                            isExpandedState = true
+                            updateVisibility()
+                        }
+                    )
+                }
+            }
+        }
+
+        // 创建右侧展开按钮视图
+        rightExpandButtonView = ComposeView(displayContext).apply {
+            setViewTreeLifecycleOwner(this@OverlayService)
+            setViewTreeSavedStateRegistryOwner(this@OverlayService)
+
+            setContent {
+                PortalScreenHelperTheme {
+                    StandaloneExpandButton(
+                        onClick = {
+                            isExpandedState = true
+                            updateVisibility()
+                        }
+                    )
+                }
+            }
+        }
+
+        // 添加主导航栏窗口
+        val mainBarParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.START or Gravity.TOP
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
             x = 0
-            y = 0
-            title = "PortalScreenHelperOverlay"
+            y = 24 // 增加底部边距，防止图标被裁剪
+            title = "PortalScreenMainBar"
+        }
+
+        // 添加左侧展开按钮窗口
+        val leftButtonParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.START or Gravity.BOTTOM
+            x = 24 // 增加左边距，防止图标被裁剪
+            y = 24 // 增加底部边距，防止图标被裁剪
+            title = "PortalScreenLeftExpandButton"
+        }
+
+        // 添加右侧展开按钮窗口
+        val rightButtonParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.END or Gravity.BOTTOM
+            x = 24 // 增加右边距，防止图标被裁剪
+            y = 24 // 增加底部边距，防止图标被裁剪
+            title = "PortalScreenRightExpandButton"
         }
 
         try {
-            windowManager?.addView(composeView, params)
+            windowManager?.addView(mainBarView, mainBarParams)
+            windowManager?.addView(leftExpandButtonView, leftButtonParams)
+            windowManager?.addView(rightExpandButtonView, rightButtonParams)
+
+            // 初始时隐藏不需要的组件
+            updateVisibility()
         } catch (e: Exception) {
             e.printStackTrace()
             stopSelf()
+        }
+    }
+
+    private fun updateVisibility() {
+        if (!isExpandedState) {
+            // 隐藏主导航栏，显示两个展开按钮
+            mainBarView?.visibility = android.view.View.GONE
+            leftExpandButtonView?.visibility = android.view.View.VISIBLE
+            rightExpandButtonView?.visibility = android.view.View.VISIBLE
+        } else {
+            // 显示主导航栏，隐藏两个展开按钮
+            mainBarView?.visibility = android.view.View.VISIBLE
+            leftExpandButtonView?.visibility = android.view.View.GONE
+            rightExpandButtonView?.visibility = android.view.View.GONE
         }
     }
 
@@ -168,10 +264,18 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     override fun onDestroy() {
         super.onDestroy()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-        if (composeView != null) {
-            windowManager?.removeView(composeView)
-            composeView = null
-            windowManager = null
+        if (mainBarView != null) {
+            windowManager?.removeView(mainBarView)
+            mainBarView = null
         }
+        if (leftExpandButtonView != null) {
+            windowManager?.removeView(leftExpandButtonView)
+            leftExpandButtonView = null
+        }
+        if (rightExpandButtonView != null) {
+            windowManager?.removeView(rightExpandButtonView)
+            rightExpandButtonView = null
+        }
+        windowManager = null
     }
 }
