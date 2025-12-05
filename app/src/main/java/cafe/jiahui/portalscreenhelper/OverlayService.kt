@@ -194,7 +194,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         ).apply {
             gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
             x = 0
-            y = 24 // 增加底部边距，防止图标被裁剪
+            y = 8 // 增加底部边距，防止图标被裁剪
             title = "PortalScreenMainBar"
         }
 
@@ -208,8 +208,8 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.START or Gravity.BOTTOM
-            x = 24 // 增加左边距，防止图标被裁剪
-            y = 24 // 增加底部边距，防止图标被裁剪
+            x = 16 // 增加左边距，防止图标被裁剪
+            y = 8 // 增加底部边距，防止图标被裁剪
             title = "PortalScreenLeftExpandButton"
         }
 
@@ -223,8 +223,8 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.END or Gravity.BOTTOM
-            x = 24 // 增加右边距，防止图标被裁剪
-            y = 24 // 增加底部边距，防止图标被裁剪
+            x = 16 // 增加右边距，防止图标被裁剪
+            y = 8 // 增加底部边距，防止图标被裁剪
             title = "PortalScreenRightExpandButton"
         }
 
